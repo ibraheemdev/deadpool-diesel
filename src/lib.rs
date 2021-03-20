@@ -3,11 +3,9 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use diesel::prelude::*;
-
-use deadpool::managed::{Manager, RecycleResult};
-
 use async_trait::async_trait;
+use deadpool::managed::{Manager, RecycleResult};
+use diesel::prelude::*;
 
 mod rt;
 
@@ -43,35 +41,36 @@ impl fmt::Display for Error {
         match *self {
             Error::ConnectionError(ref e) => e.fmt(f),
             Error::QueryError(ref e) => e.fmt(f),
-            Error::SpawnError(ref e) => e.fmt(f)
+            Error::SpawnError(ref e) => e.fmt(f),
         }
     }
 }
 
 impl std::error::Error for Error {}
 
+#[async_trait]
 pub trait DeadpoolConnection: Connection {
-    fn ping(&self) -> QueryResult<()>;
+    async fn ping(&self) -> QueryResult<()>;
 }
 
 #[cfg(feature = "postgres")]
 impl DeadpoolConnection for diesel::pg::PgConnection {
-    fn ping(&self) -> QueryResult<()> {
-        self.execute("SELECT 1").map(|_| ())
+    async fn ping(&self) -> QueryResult<()> {
+        rt::spawn_blocking(move || self.execute("SELECT 1").map(|_| ()))
     }
 }
 
 #[cfg(feature = "mysql")]
 impl DeadpoolConnection for diesel::mysql::MysqlConnection {
-    fn ping(&self) -> QueryResult<()> {
-        self.execute("SELECT 1").map(|_| ())
+    async fn ping(&self) -> QueryResult<()> {
+        rt::spawn_blocking(move || self.execute("SELECT 1").map(|_| ()))
     }
 }
 
 #[cfg(feature = "sqlite")]
 impl DeadpoolConnection for diesel::sqlite::SqliteConnection {
-    fn ping(&self) -> QueryResult<()> {
-        self.execute("SELECT 1").map(|_| ())
+    async fn ping(&self) -> QueryResult<()> {
+        rt::spawn_blocking(move || self.execute("SELECT 1").map(|_| ()))
     }
 }
 
@@ -88,6 +87,9 @@ where
     }
 
     async fn recycle(&self, conn: &mut T) -> RecycleResult<Error> {
-        conn.ping().map_err(Error::QueryError).map_err(|e| e.into())
+        conn.ping()
+            .await
+            .map_err(Error::QueryError)
+            .map_err(|e| e.into())
     }
 }
