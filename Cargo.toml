@@ -1,0 +1,19 @@
+[package]
+name = "deadpool-diesel"
+version = "0.1.0"
+authors = ["ibraheemdev <ibrah1440@gmail.com>"]
+edition = "2018"
+
+[features]
+sqlite = ["diesel/sqlite"]
+postgres = ["diesel/postgres"]
+mysql = ["diesel/mysql"]
+rt-tokio = ["tokio"]
+rt-async-std = ["async-std"]
+
+[dependencies]
+async-trait = "0.1"
+deadpool = "0.7"
+diesel = { version = "1.4", default-features = false }
+tokio = { version = "1.4", default-features = false, features = ["rt"], optional = true }
+async-std = { version = "1.4", features = ["unstable"], optional = true }
